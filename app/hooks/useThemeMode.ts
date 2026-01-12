@@ -6,50 +6,36 @@ export type ThemeMode = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 export const THEME_STORAGE_KEY = "blueprint_theme_mode_v1";
 
-const getSystemTheme = (): ResolvedTheme => {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-};
-
-const getInitialThemeMode = (): ThemeMode => {
-  if (typeof window === "undefined") return "system";
-  try {
-    const v = localStorage.getItem(THEME_STORAGE_KEY);
-    if (v === "system" || v === "light" || v === "dark") return v;
-  } catch {}
-  return "system";
-};
-
 export function useThemeMode() {
-  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() =>
-    getSystemTheme(),
-  );
-  const resolvedTheme: ResolvedTheme =
-    themeMode === "system" ? systemTheme : themeMode;
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>("dark");
+
+  const resolvedTheme = themeMode === "system" ? systemTheme : themeMode;
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemTheme(mq.matches ? "dark" : "light");
+
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+      const v = localStorage.getItem(THEME_STORAGE_KEY);
+      if (v === "system" || v === "light" || v === "dark") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setThemeMode(v);
+      }
     } catch {}
-  }, [themeMode]);
+  }, []);
 
   useEffect(() => {
-    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-    if (!mq) return;
-
-    const onChange = () => setSystemTheme(mq.matches ? "dark" : "light");
-    onChange();
-
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", onChange);
-      return () => mq.removeEventListener("change", onChange);
-    }
-    mq.addListener(onChange);
-    return () => mq.removeListener(onChange);
-  }, []);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    } catch {}
+  }, [themeMode]);
 
   return { themeMode, setThemeMode, resolvedTheme };
 }
